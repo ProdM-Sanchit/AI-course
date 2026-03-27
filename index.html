@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Three Levers of AI — Prompt Eng · RAG · Fine-Tuning</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0c0c0e; --surface: #141416; --surface2: #1c1c20; --border: #2a2a30;
+    --amber: #f5a623; --amber-dim: #c47d0e; --amber-glow: rgba(245,166,35,0.12);
+    --teal: #2dd4bf; --rose: #fb7185; --violet: #a78bfa;
+    --text: #e8e6e0; --text-muted: #7a7870; --text-dim: #4a4845;
+    --font-display: 'Playfair Display', serif; --font-body: 'DM Sans', sans-serif; --font-mono: 'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+
+  #progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--amber), var(--teal)); width: 0%; z-index: 1000; transition: width 0.3s ease; box-shadow: 0 0 12px var(--amber); }
+
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 16px 40px; background: rgba(12,12,14,0.9); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border); }
+  .nav-logo { font-family: var(--font-mono); font-size: 11px; color: var(--amber); letter-spacing: 0.15em; text-transform: uppercase; }
+  .nav-dots { display: flex; align-items: center; gap: 8px; }
+  .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.3s; position: relative; }
+  .nav-dot:hover { background: var(--text-muted); }
+  .nav-dot.active { background: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,0.6); transform: scale(1.25); }
+  .nav-dot.done { background: var(--teal); }
+  .nav-dot .tip { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-family: var(--font-mono); white-space: nowrap; color: var(--text-muted); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .nav-dot:hover .tip { opacity: 1; }
+
+  #hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 40px 80px; position: relative; overflow: hidden; text-align: center; }
+  .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(245,166,35,0.07) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 80% 70%, rgba(45,212,191,0.05) 0%, transparent 60%); pointer-events: none; }
+  .hero-tag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); border: 1px solid var(--amber-dim); padding: 6px 18px; border-radius: 20px; margin-bottom: 36px; display: inline-block; animation: fadeUp 0.8s ease forwards; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(36px, 7vw, 82px); font-weight: 900; line-height: 1.05; margin-bottom: 24px; animation: fadeUp 0.8s 0.15s ease both; }
+  .hero-title .accent { font-style: italic; color: var(--amber); display: block; }
+  .hero-sub { max-width: 540px; color: var(--text-muted); font-size: 17px; margin-bottom: 52px; animation: fadeUp 0.8s 0.3s ease both; line-height: 1.65; }
+  .hero-pills { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 52px; animation: fadeUp 0.8s 0.45s ease both; }
+  .pill { background: var(--surface); border: 1px solid var(--border); border-radius: 40px; padding: 10px 22px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s; cursor: default; }
+  .pill:hover { border-color: var(--amber); transform: translateY(-3px); }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-a { background: var(--amber); } .dot-t { background: var(--teal); } .dot-r { background: var(--rose); } .dot-v { background: var(--violet); }
+  .btn-start { background: var(--amber); color: #0c0c0e; font-family: var(--font-body); font-weight: 500; font-size: 15px; padding: 15px 44px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.25s; animation: fadeUp 0.8s 0.6s ease both; letter-spacing: 0.03em; }
+  .btn-start:hover { background: #f7bc54; transform: translateY(-3px); box-shadow: 0 10px 32px rgba(245,166,35,0.3); }
+  .scroll-hint { position: absolute; bottom: 36px; font-size: 11px; color: var(--text-dim); letter-spacing: 0.12em; font-family: var(--font-mono); animation: bounceY 2.5s infinite; }
+
+  .module { max-width: 860px; margin: 0 auto; padding: 100px 40px; opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .module.visible { opacity: 1; transform: none; }
+  .module-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 48px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+  .module-num { font-family: var(--font-mono); font-size: 11px; color: var(--amber); letter-spacing: 0.15em; background: var(--amber-glow); border: 1px solid var(--amber-dim); padding: 5px 12px; border-radius: 4px; flex-shrink: 0; margin-top: 6px; }
+  .module-title { font-family: var(--font-display); font-size: clamp(26px, 4.5vw, 40px); font-weight: 700; line-height: 1.2; }
+  .module-title em { font-style: italic; color: var(--amber); }
+
+  .analogy { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 12px; padding: 28px 32px; margin-bottom: 36px; }
+  .analogy-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--amber); margin-bottom: 12px; }
+  .analogy p { color: var(--text-muted); font-size: 15px; line-height: 1.7; }
+  .analogy strong { color: var(--text); }
+
+  .concept-text { font-size: 16.5px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.8; }
+  .concept-text strong { color: var(--text); }
+
+  .highlight { background: linear-gradient(135deg, rgba(245,166,35,0.07), rgba(245,166,35,0.02)); border: 1px solid rgba(245,166,35,0.2); border-radius: 12px; padding: 22px 28px; margin: 24px 0; font-size: 15px; color: var(--text-muted); line-height: 1.7; }
+  .highlight .hl-title { font-weight: 500; color: var(--amber); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 10px; }
+  .highlight strong { color: var(--text); }
+
+  .biz-case { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin: 40px 0; position: relative; overflow: hidden; }
+  .biz-case::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--teal), transparent); }
+  .biz-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin-bottom: 10px; }
+  .biz-title { font-family: var(--font-display); font-size: 21px; font-weight: 700; margin-bottom: 16px; line-height: 1.3; }
+  .biz-case p { color: var(--text-muted); font-size: 15px; margin-bottom: 12px; line-height: 1.7; }
+  .biz-outcome { display: flex; align-items: flex-start; gap: 12px; background: rgba(45,212,191,0.06); border: 1px solid rgba(45,212,191,0.2); border-radius: 10px; padding: 14px 18px; margin-top: 16px; font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+  .biz-outcome .check { color: var(--teal); flex-shrink: 0; font-size: 16px; margin-top: 2px; }
+
+  .quiz-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin: 40px 0; }
+  .quiz-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--rose); margin-bottom: 10px; }
+  .quiz-q { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin-bottom: 24px; line-height: 1.4; }
+  .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+  .quiz-option { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; cursor: pointer; font-size: 15px; color: var(--text-muted); transition: all 0.2s; text-align: left; font-family: var(--font-body); display: flex; align-items: center; gap: 12px; line-height: 1.5; }
+  .quiz-option:hover:not(:disabled) { border-color: var(--amber); color: var(--text); background: var(--amber-glow); }
+  .quiz-option.correct { border-color: var(--teal) !important; background: rgba(45,212,191,0.09) !important; color: var(--text) !important; }
+  .quiz-option.wrong { border-color: var(--rose) !important; background: rgba(251,113,133,0.09) !important; color: var(--text) !important; }
+  .quiz-option:disabled { cursor: default; }
+  .opt-letter { width: 27px; height: 27px; border-radius: 6px; background: var(--border); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; flex-shrink: 0; font-weight: 500; }
+  .quiz-feedback { margin-top: 20px; padding: 16px 20px; border-radius: 10px; font-size: 15px; display: none; line-height: 1.65; }
+  .quiz-feedback.show { display: block; }
+  .quiz-feedback.ok { background: rgba(45,212,191,0.07); border: 1px solid rgba(45,212,191,0.22); color: var(--text-muted); }
+  .quiz-feedback.nope { background: rgba(251,113,133,0.07); border: 1px solid rgba(251,113,133,0.22); color: var(--text-muted); }
+  .quiz-feedback strong { color: var(--text); }
+
+  .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 40px; }
+
+  .comparison { width: 100%; border-collapse: collapse; margin: 32px 0; font-size: 14px; }
+  .comparison th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  .comparison td { padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); vertical-align: top; font-size: 14px; line-height: 1.6; }
+  .comparison tr:last-child td { border-bottom: none; }
+  .comparison tr:hover td { background: var(--surface); }
+  .tag { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 3px 9px; border-radius: 4px; font-weight: 500; }
+  .tag-pe { background: rgba(245,166,35,0.14); color: var(--amber); }
+  .tag-rag { background: rgba(45,212,191,0.14); color: var(--teal); }
+  .tag-ft { background: rgba(251,113,133,0.14); color: var(--rose); }
+
+  #final-quiz { background: var(--surface2); border-top: 1px solid var(--border); padding: 100px 40px; }
+  .final-inner { max-width: 860px; margin: 0 auto; }
+  .final-title { font-family: var(--font-display); font-size: clamp(28px, 5vw, 48px); font-weight: 900; margin-bottom: 10px; }
+  .final-sub { color: var(--text-muted); margin-bottom: 56px; font-size: 17px; line-height: 1.6; }
+  .fq-item { border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; background: var(--surface); }
+  .fq-num { font-family: var(--font-mono); font-size: 11px; color: var(--amber); margin-bottom: 12px; letter-spacing: 0.1em; }
+
+  .submit-wrap { text-align: center; margin-top: 20px; padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+  .submit-progress { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 16px; letter-spacing: 0.05em; }
+  .submit-progress span { color: var(--amber); font-weight: 500; }
+  .btn-submit { background: var(--amber); color: #0c0c0e; font-family: var(--font-body); font-weight: 500; font-size: 15px; padding: 14px 44px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.25s; opacity: 0.35; pointer-events: none; }
+  .btn-submit.ready { opacity: 1; pointer-events: all; }
+  .btn-submit.ready:hover { background: #f7bc54; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(245,166,35,0.3); }
+
+  .score-display { display: none; }
+  .score-display.show { display: block; }
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 56px 40px; text-align: center; margin-bottom: 32px; position: relative; overflow: hidden; }
+  .score-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(245,166,35,0.08), transparent); pointer-events: none; }
+  .score-ring { width: 150px; height: 150px; border-radius: 50%; margin: 0 auto 32px; display: flex; align-items: center; justify-content: center; flex-direction: column; position: relative; }
+  .score-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-ring circle { fill: none; stroke-width: 4; stroke-linecap: round; }
+  .ring-bg { stroke: var(--border); }
+  .ring-fg { stroke: var(--amber); transition: stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1); }
+  .score-num { font-family: var(--font-display); font-size: 52px; font-weight: 900; color: var(--amber); line-height: 1; position: relative; z-index: 1; }
+  .score-denom { font-family: var(--font-mono); font-size: 14px; color: var(--text-muted); position: relative; z-index: 1; }
+  .score-title { font-family: var(--font-display); font-size: 30px; font-weight: 700; margin-bottom: 12px; }
+  .score-msg { font-size: 16px; color: var(--text-muted); max-width: 500px; margin: 0 auto; line-height: 1.65; }
+  .score-badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 36px 0 0; }
+  .badge { padding: 8px 18px; border-radius: 20px; font-size: 13px; font-family: var(--font-mono); border: 1px solid; }
+  .badge-pe { color: var(--amber); border-color: var(--amber-dim); background: var(--amber-glow); }
+  .badge-rag { color: var(--teal); border-color: rgba(45,212,191,0.3); background: rgba(45,212,191,0.06); }
+  .badge-ft { color: var(--rose); border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.06); }
+
+
+  footer { text-align: center; padding: 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.1em; border-top: 1px solid var(--border); }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes bounceY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+
+  /* ── TRADEOFF BLOCKS ── */
+  .tradeoff-block { border:1px solid var(--border); border-radius:12px; padding:28px 32px; margin-bottom:24px; background:var(--surface); }
+  .tradeoff-block.pe { border-left:3px solid var(--amber); }
+  .tradeoff-block.rag { border-left:3px solid var(--teal); }
+  .tradeoff-block.ft { border-left:3px solid var(--rose); }
+  .tradeoff-label { font-family:var(--font-mono); font-size:10px; letter-spacing:.15em; text-transform:uppercase; margin-bottom:12px; }
+  .tradeoff-label.pe { color:var(--amber); } .tradeoff-label.rag { color:var(--teal); } .tradeoff-label.ft { color:var(--rose); }
+  .tradeoff-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+  .tradeoff-col { border-radius:8px; padding:14px 16px; font-size:13px; color:var(--text-muted); line-height:1.7; }
+  .tradeoff-col.good { background:rgba(45,212,191,.06); border:1px solid rgba(45,212,191,.2); }
+  .tradeoff-col.bad  { background:rgba(251,113,133,.06); border:1px solid rgba(251,113,133,.2); }
+  .tradeoff-col-label { font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .tradeoff-col.good .tradeoff-col-label { color:var(--teal); }
+  .tradeoff-col.bad  .tradeoff-col-label { color:var(--rose); }
+
+  /* ── DECISION FRAMEWORK ── */
+  .decision-q { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin-bottom:16px; }
+  .decision-q-text { font-family:var(--font-display); font-size:17px; font-weight:600; margin-bottom:14px; line-height:1.3; }
+  .decision-choices { display:flex; flex-direction:column; gap:8px; }
+  .decision-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 16px; text-align:left; font-family:var(--font-body); font-size:14px; color:var(--text-muted); cursor:pointer; transition:all .2s; }
+  .decision-btn:hover { border-color:var(--amber); color:var(--text); background:var(--amber-glow); }
+  .decision-result { display:none; margin-top:16px; padding:20px 22px; border-radius:10px; font-size:14px; line-height:1.7; }
+  .decision-result.show { display:block; }
+  .decision-result strong { color:var(--text); }
+  .dr-pe  { background:rgba(245,166,35,.08); border:1px solid rgba(245,166,35,.25); color:var(--text-muted); }
+  .dr-rag { background:rgba(45,212,191,.07); border:1px solid rgba(45,212,191,.22); color:var(--text-muted); }
+  .dr-ft  { background:rgba(251,113,133,.07); border:1px solid rgba(251,113,133,.22); color:var(--text-muted); }
+  .dr-all { background:linear-gradient(135deg,rgba(245,166,35,.06),rgba(45,212,191,.04)); border:1px solid rgba(245,166,35,.2); color:var(--text-muted); }
+  .dr-correct { background:rgba(45,212,191,.10); border:2px solid rgba(45,212,191,.5); color:var(--text-muted); }
+  .dr-correct strong { color:#2dd4bf; }
+  .dr-wrong { background:rgba(251,113,133,.07); border:1px solid rgba(251,113,133,.22); color:var(--text-muted); }
+  .dr-icon { font-size:22px; margin-bottom:8px; display:block; }
+  .decision-reset { background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; padding:8px 16px; border-radius:6px; cursor:pointer; margin-top:12px; transition:all .2s; }
+  .decision-reset:hover { border-color:var(--amber-dim); color:var(--amber); }
+
+  /* ── GLOSSARY ── */
+  #glossary { background:var(--surface2); border-top:1px solid var(--border); padding:80px 40px; }
+  .gloss-inner { max-width:860px; margin:0 auto; }
+  .gloss-title { font-family:var(--font-display); font-size:clamp(26px,4vw,40px); font-weight:900; margin-bottom:8px; }
+  .gloss-sub { color:var(--text-muted); margin-bottom:36px; }
+  .gloss-filter { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; }
+  .gloss-tag-btn { font-family:var(--font-mono); font-size:11px; padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer; transition:all .2s; letter-spacing:.05em; }
+  .gloss-tag-btn.active, .gloss-tag-btn:hover { border-color:var(--amber); color:var(--amber); background:var(--amber-glow); }
+  .gloss-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .gloss-item { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; transition:border-color .2s; }
+  .gloss-item[data-hidden="true"] { display:none; }
+  .gloss-item-top { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .gloss-term { font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--text); }
+  .gloss-badge { font-family:var(--font-mono); font-size:10px; padding:2px 8px; border-radius:10px; flex-shrink:0; }
+  .gloss-def { font-size:13px; color:var(--text-muted); line-height:1.65; }
+
+  /* ── WHAT'S NEXT ── */
+  #whats-next { border-top:1px solid var(--border); padding:80px 40px; }
+  .wn-inner { max-width:860px; margin:0 auto; }
+  .wn-title { font-family:var(--font-display); font-size:clamp(26px,4vw,40px); font-weight:900; margin-bottom:8px; }
+  .wn-sub { color:var(--text-muted); margin-bottom:40px; }
+  .wn-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+  .wn-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; transition:border-color .2s, transform .2s; }
+  .wn-card:hover { border-color:var(--amber-dim); transform:translateY(-3px); }
+  .wn-card-icon { font-size:28px; margin-bottom:12px; }
+  .wn-card h4 { font-size:15px; font-weight:500; margin-bottom:8px; }
+  .wn-card p { font-size:13px; color:var(--text-muted); line-height:1.6; }
+
+  @media (max-width:600px) {
+    .tradeoff-grid { grid-template-columns:1fr; }
+    .gloss-grid { grid-template-columns:1fr; }
+    #glossary, #whats-next { padding:60px 24px; }
+  }
+
+
+
+  @media (max-width: 600px) {
+    nav { padding: 14px 20px; }
+    .module { padding: 80px 20px; }
+    #hero { padding: 100px 20px 70px; }
+    #final-quiz { padding: 80px 20px; }
+    .biz-case, .quiz-section { padding: 22px; }
+  }
+</style></head>
+<body>
+
+<div id="progress-bar"></div>
+
+<nav>
+  <div class="nav-logo">AI Fundamentals</div>
+  <div class="nav-dots" id="nav-dots"></div>
+</nav>
+
+<!-- HERO -->
+<section id="sec-hero">
+  <div id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-tag">Free Mini Course · 5 Modules · Quizzes</div>
+    <h1 class="hero-title">The Three Levers<br><span class="accent">of AI</span></h1>
+    <p class="hero-sub">Three tools, three layers, one system. Prompt Engineering shapes the conversation. RAG controls what the AI knows. Fine-Tuning changes how it thinks. Learn all three — with real business cases and quizzes that make it stick.</p>
+    <div class="hero-pills">
+      <div class="pill"><div class="dot dot-a"></div>Prompt Engineering</div>
+      <div class="pill"><div class="dot dot-t"></div>RAG</div>
+      <div class="pill"><div class="dot dot-r"></div>Fine-Tuning</div>
+      <div class="pill"><div class="dot dot-v"></div>How They Work Together</div>
+    </div>
+    <button class="btn-start" onclick="document.getElementById('sec-m1').scrollIntoView({behavior:'smooth'})">Start Learning →</button>
+    <div class="scroll-hint">↓ scroll to begin</div>
+  </div>
+</section>
+
+<!-- MODULE 1 -->
+<section id="sec-m1">
+  <div class="module" data-sec="1">
+    <div class="module-header">
+      <div class="module-num">Module 01</div>
+      <h2 class="module-title">Prompt Engineering — <em>The Art of Asking</em></h2>
+    </div>
+    <div class="analogy">
+      <div class="analogy-label">🧞 The Genie Analogy</div>
+      <p>Imagine a <strong>genie that does exactly what you say — not what you mean.</strong> You ask: <em>"Make me a sandwich."</em> It places one on the ceiling. Technically correct. Totally useless. Prompt Engineering is learning to speak genie — crafting your request so precisely that you always get what you actually want.</p>
+    </div>
+    <p class="concept-text">AI models are powerful — but also literal. The same question, asked two different ways, can produce a brilliant answer or a useless one. <strong>Prompt Engineering is the skill of talking to AI effectively.</strong> No coding required. Anyone can learn it today.</p>
+    <div class="highlight">
+      <div class="hl-title">Trick 1 — Give AI a Role</div>
+      Instead of asking <em>"explain investing"</em>, try: <em>"You are a patient financial advisor speaking to a nervous first-time investor."</em> You gave the AI a costume — it behaves completely differently. More careful, simpler vocabulary, more reassuring.
+    </div>
+    <div class="highlight">
+      <div class="hl-title">Trick 2 — Ask It To Think Step By Step</div>
+      Adding <strong>"think step by step"</strong> to hard questions makes AI dramatically more accurate. It forces the model to slow down and show its work — exactly like your maths teacher insisted. Fewer shortcuts = fewer mistakes.
+    </div>
+    <div class="highlight">
+      <div class="hl-title">Trick 3 — Show It an Example First</div>
+      Show the AI what a great answer looks like before asking your question. It will pattern-match your example. This is called <strong>"few-shot prompting"</strong> — one of the highest-leverage techniques available, used by professionals every day.
+    </div>
+    <div class="biz-case">
+      <div class="biz-label">📊 Real Business Case</div>
+      <div class="biz-title">Why Senior Consultants Get 10× More From AI Than Juniors</div>
+      <p>Management consultants use AI to draft client reports, analyse data, and build presentations — tasks that used to take days.</p>
+      <p>The difference? Senior consultants write prompts that specify the audience, tone, output format, length, and constraints — all at once. The AI produces near-final work. Juniors write vague prompts, get generic output, then spend hours editing.</p>
+      <div class="biz-outcome">
+        <span class="check">✦</span>
+        <span><strong>Outcome:</strong> Same AI. Same model. The quality of the prompt determines whether you save 2 hours or 2 days. Prompt Engineering is already a competitive career skill — and it costs nothing to learn.</span>
+      </div>
+    </div>
+    <div class="quiz-section">
+      <div class="quiz-label">✦ Checkpoint Quiz</div>
+      <div class="quiz-q">A marketing manager asks the AI: "Write me an email." She gets something bland and generic. What is the most likely reason — and what should she do?</div>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false" onclick="mq('q1',this,'q1fb')"><span class="opt-letter">A</span>The AI is broken and needs to be restarted.</button>
+        <button class="quiz-option" data-correct="true"  onclick="mq('q1',this,'q1fb')"><span class="opt-letter">B</span>Her prompt is too vague — she needs to specify audience, goal, tone, and format.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q1',this,'q1fb')"><span class="opt-letter">C</span>She needs a more expensive AI model.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q1',this,'q1fb')"><span class="opt-letter">D</span>AI simply cannot write good marketing emails.</button>
+      </div>
+      <div class="quiz-feedback" id="q1fb"></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MODULE 2 -->
+<section id="sec-m2">
+  <div class="module" data-sec="2">
+    <div class="module-header">
+      <div class="module-num">Module 02</div>
+      <h2 class="module-title">RAG — <em>The Open-Book Test</em></h2>
+    </div>
+    <div class="analogy">
+      <div class="analogy-label">🎒 Two Students in an Exam</div>
+      <p><strong>Student A</strong> relies purely on memory — everything learned before walking in. <strong>Student B</strong> gets a backpack full of books and can look things up before writing each answer. Who gives more accurate, current answers? <strong>Student B — every time. RAG gives AI a backpack.</strong></p>
+    </div>
+    <p class="concept-text">Standard AI learned everything during training — then stopped learning. Ask about last week's news or your company's internal files and it either guesses or admits ignorance.</p>
+    <p class="concept-text"><strong>RAG (Retrieval-Augmented Generation)</strong> changes this. Before answering, the AI searches a connected library — your company files, a product catalogue, medical journals — and uses that fresh, specific information to build its answer.</p>
+    <div class="highlight">
+      <div class="hl-title">How Does It Find the Right Page in Millions of Documents?</div>
+      Not by keyword-matching like Google. Every document is converted into numbers capturing its <em>meaning</em>. Your question also becomes numbers. The system finds documents whose meaning is <strong>mathematically closest</strong> to your question — "dog" and "puppy" land near each other; "dog" and "tax returns" land in different countries on this map of meaning.
+    </div>
+    <div class="highlight">
+      <div class="hl-title">⚠️ Where RAG Fails — Hallucination</div>
+      If the answer isn't in the library, the AI sometimes invents one — confidently. This is <strong>hallucination</strong>, like Student B finding nothing in their backpack but writing something anyway. Good RAG systems are designed to say <em>"I couldn't find a reliable source"</em> instead of guessing.
+    </div>
+    <div class="biz-case">
+      <div class="biz-label">📊 Real Business Case</div>
+      <div class="biz-title">How Klarna Handles Millions of Customer Queries with AI</div>
+      <p>Klarna needed a support AI that could answer questions about real-time orders, policies, and account details — information that changes daily.</p>
+      <p>They built with RAG: before every response, the AI searches Klarna's live policy documents, order database, and FAQ library. It doesn't memorise policies — it looks them up fresh, in real time, for every customer.</p>
+      <div class="biz-outcome">
+        <span class="check">✦</span>
+        <span><strong>Outcome:</strong> The AI handles the equivalent of hundreds of full-time support agents. When policies update, the team updates one document — the AI is automatically current. No retraining needed.</span>
+      </div>
+    </div>
+    <div class="quiz-section">
+      <div class="quiz-label">✦ Checkpoint Quiz</div>
+      <div class="quiz-q">A law firm wants an AI that can answer questions about their clients' specific cases — unique contracts, emails, and notes that no AI has ever seen. Which approach is best?</div>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false" onclick="mq('q2',this,'q2fb')"><span class="opt-letter">A</span>Fine-Tuning — train the AI on all client documents.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q2',this,'q2fb')"><span class="opt-letter">B</span>Prompt Engineering — ask very detailed questions.</button>
+        <button class="quiz-option" data-correct="true"  onclick="mq('q2',this,'q2fb')"><span class="opt-letter">C</span>RAG — let the AI retrieve the relevant case documents before each answer.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q2',this,'q2fb')"><span class="opt-letter">D</span>None — AI cannot be used with confidential client data.</button>
+      </div>
+      <div class="quiz-feedback" id="q2fb"></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MODULE 3 -->
+<section id="sec-m3">
+  <div class="module" data-sec="3">
+    <div class="module-header">
+      <div class="module-num">Module 03</div>
+      <h2 class="module-title">Fine-Tuning — <em>Specialty School</em></h2>
+    </div>
+    <div class="analogy">
+      <div class="analogy-label">⛸️ The Athlete Goes to Skating School</div>
+      <p>Jordan is a solid all-rounder — can swim, run, play basketball, do gymnastics. Then Jordan trains intensively for 6 months in figure skating. Afterwards, Jordan can still do everything before — but is now <strong>exceptional at skating specifically.</strong> Fine-Tuning is sending a general AI to specialty school.</p>
+    </div>
+    <p class="concept-text">A general AI is like a well-read generalist — knows a bit about everything. <strong>Fine-Tuning</strong> immerses that generalist in thousands of examples of one specific thing: legal contracts, medical diagnoses, customer service scripts, cooking recipes.</p>
+    <p class="concept-text">The result isn't just an AI with more facts. It develops a <strong>new way of thinking and communicating</strong> — absorbing the tone, vocabulary, and priorities of its specialty. A fine-tuned Nike customer service AI doesn't just know the return policy — it sounds like Nike. That's identity, not just information.</p>
+    <div class="highlight">
+      <div class="hl-title">⚠️ The Hidden Danger — Bias Baked In</div>
+      A famous case: a hiring AI was fine-tuned on a company's past hiring decisions. Most past hires were men. The AI silently learned to downrank women's resumes. <strong>Nobody programmed this. It absorbed the bias from the data.</strong> Fine-Tuning learns everything in your examples — including the mistakes and prejudices.
+    </div>
+    <div class="highlight">
+      <div class="hl-title">RAG vs Fine-Tuning — The Critical Difference</div>
+      <strong>RAG</strong> changes what the AI <em>knows</em> — update a document, AI is current immediately.<br><br>
+      <strong>Fine-Tuning</strong> changes how the AI <em>thinks</em> — its reasoning style, personality, vocabulary. Can't be updated by swapping a file. Requires full retraining — which costs significant time and money.
+    </div>
+    <div class="biz-case">
+      <div class="biz-label">📊 Real Business Case</div>
+      <div class="biz-title">How Bloomberg Built an AI That Thinks Like a Financial Analyst</div>
+      <p>Bloomberg trained a general AI on 40 years of financial news, analyst reports, earnings calls, and market data. The result — BloombergGPT — doesn't just know about finance. It reasons like a financial professional.</p>
+      <p>A general AI might say a stock "went up." BloombergGPT says it experienced "a bullish breakout supported by stronger-than-expected EBITDA margin expansion." Same event — completely different depth and usefulness.</p>
+      <div class="biz-outcome">
+        <span class="check">✦</span>
+        <span><strong>Outcome:</strong> Fine-Tuning turned a general model into a genuine specialist. Bloomberg's clients get analysis that reads like a senior analyst wrote it — not a generic chatbot.</span>
+      </div>
+    </div>
+    <div class="quiz-section">
+      <div class="quiz-label">✦ Checkpoint Quiz</div>
+      <div class="quiz-q">A company fine-tunes an AI on 5 years of their best salesperson's emails. Six months later, the AI consistently recommends one specific vendor — even when cheaper options exist. Nobody programmed this preference. What happened?</div>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false" onclick="mq('q3',this,'q3fb')"><span class="opt-letter">A</span>The AI was hacked and reprogrammed by the vendor.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q3',this,'q3fb')"><span class="opt-letter">B</span>A badly written prompt somewhere in the system caused it.</button>
+        <button class="quiz-option" data-correct="true"  onclick="mq('q3',this,'q3fb')"><span class="opt-letter">C</span>The salesperson consistently used that vendor — so the training data was skewed, and the AI absorbed the bias.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q3',this,'q3fb')"><span class="opt-letter">D</span>The RAG library pointed to that vendor's website.</button>
+      </div>
+      <div class="quiz-feedback" id="q3fb"></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MODULE 4 -->
+<section id="sec-m4">
+  <div class="module" data-sec="4">
+    <div class="module-header">
+      <div class="module-num">Module 04</div>
+      <h2 class="module-title">How They Work <em>Together</em></h2>
+    </div>
+    <p class="concept-text">These three tools aren't alternatives — they're <strong>layers</strong>. The best AI systems in the world use all three, with each covering the weaknesses of the others.</p>
+    <table class="comparison">
+      <thead>
+        <tr><th>Technique</th><th>What It Changes</th><th>Who Controls It</th><th>Updates How?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag tag-pe">Prompt Eng.</span></td><td>How you ask the question</td><td>Anyone — no code needed</td><td>Instantly, every prompt</td></tr>
+        <tr><td><span class="tag tag-rag">RAG</span></td><td>What facts the AI can access</td><td>Developers + document owners</td><td>Update a document — done</td></tr>
+        <tr><td><span class="tag tag-ft">Fine-Tuning</span></td><td>How the AI thinks and speaks</td><td>Developers + data teams</td><td>Full retraining required</td></tr>
+      </tbody>
+    </table>
+    <div class="biz-case">
+      <div class="biz-label">🧩 Combined Real-World Example</div>
+      <div class="biz-title">A Legal AI Assistant at a Major Law Firm</div>
+      <p><strong>Fine-Tuning layer:</strong> Trained on thousands of legal cases and contracts. Thinks like a lawyer — uses legal language naturally, understands precedent, reasons about risk the way a trained professional would.</p>
+      <p><strong>RAG layer:</strong> When you ask about a specific client's matter, the AI retrieves that client's actual contracts and emails in real time. It didn't memorise these — it looks them up fresh for every query.</p>
+      <p><strong>Prompt Engineering layer:</strong> Lawyers have crafted tested prompts: <em>"Identify liability risks and explain them to a non-lawyer client in plain English, under 200 words, no hedging."</em> This shapes output format, audience, and tone every time.</p>
+      <div class="biz-outcome">
+        <span class="check">✦</span>
+        <span>Remove any one layer and the tool degrades noticeably. Fine-Tuning provides the expertise. RAG provides the facts. Prompt Engineering provides the shape. All three together is what separates a professional tool from a toy.</span>
+      </div>
+    </div>
+    <div class="quiz-section">
+      <div class="quiz-label">✦ Checkpoint Quiz</div>
+      <div class="quiz-q">A hospital wants an AI assistant for doctors. They have 20 years of clinical diagnosis notes (for training), monthly-updated treatment guidelines (in a database), and need structured safe output formats. Which approach covers all three needs?</div>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false" onclick="mq('q4',this,'q4fb')"><span class="opt-letter">A</span>Fine-Tuning only — train on 20 years of notes and it will know everything.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q4',this,'q4fb')"><span class="opt-letter">B</span>RAG only — connect to the guidelines database and the AI will be accurate.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q4',this,'q4fb')"><span class="opt-letter">C</span>Prompt Engineering only — write very detailed medical prompts.</button>
+        <button class="quiz-option" data-correct="true"  onclick="mq('q4',this,'q4fb')"><span class="opt-letter">D</span>All three — Fine-Tune for clinical reasoning, RAG for current guidelines, Prompt Engineering for safe structured output.</button>
+      </div>
+      <div class="quiz-feedback" id="q4fb"></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULE 5 -->
+<section id="sec-m5">
+  <div class="module" data-sec="5">
+    <div class="module-header">
+      <div class="module-num">Module 05</div>
+      <h2 class="module-title">Trade-offs &amp; <em>Real Challenges</em></h2>
+    </div>
+    <p class="concept-text">Every tool in this course is powerful — and every tool has a way it quietly fails. The difference between a good AI implementation and a bad one isn't which tool you picked. It's whether you understood <strong>where each one starts to break.</strong></p>
+
+    <div class="tradeoff-block pe">
+      <div class="tradeoff-label pe">🗣️ Prompt Engineering — The Brittleness Problem</div>
+      <p class="concept-text">Imagine a company with 500 different AI-powered features — each controlled by a carefully written prompt. Their AI provider quietly ships a model update. Overnight, all 500 prompts behave slightly differently. Nobody changed a line of code. <strong>The prompts just interact with the new model differently.</strong></p>
+      <p class="concept-text">This is called <strong>prompt brittleness</strong>. Prompts aren't like code — they don't version-control cleanly, they have no unit tests, and a single word change can flip the output. At scale, this becomes a maintenance nightmare nobody anticipated at launch.</p>
+      <div class="tradeoff-grid">
+        <div class="tradeoff-col good"><div class="tradeoff-col-label">Works Well When</div>• You have a small number of prompts<br>• Task is well-defined and consistent<br>• Speed to deploy matters most</div>
+        <div class="tradeoff-col bad"><div class="tradeoff-col-label">Breaks Down When</div>• AI model gets updated silently<br>• You need consistent results at scale<br>• High-stakes decisions rely on output</div>
+      </div>
+    </div>
+
+    <div class="tradeoff-block rag">
+      <div class="tradeoff-label rag">📚 RAG — The Garbage Document Problem</div>
+      <p class="concept-text">RAG is only as good as the documents in its library. The AI doesn't fact-check what it retrieves — <strong>it trusts whatever lands in front of it.</strong> One outdated policy file, one internally contradictory document, one subtly wrong number — and the AI builds a confident answer around it.</p>
+      <p class="concept-text">There's also the <strong>context window problem</strong>: the AI can only hold a limited slice of retrieved documents in its working memory at once. If the answer requires understanding five documents together but only two fit in memory, it might miss the crucial connection — like being handed three torn pages from three different books and asked to understand the full plot.</p>
+      <div class="tradeoff-grid">
+        <div class="tradeoff-col good"><div class="tradeoff-col-label">Works Well When</div>• Documents are well-maintained<br>• Questions are focused and specific<br>• Info changes frequently</div>
+        <div class="tradeoff-col bad"><div class="tradeoff-col-label">Breaks Down When</div>• Document library is stale or messy<br>• Answer spans many documents at once<br>• No governance process for documents</div>
+      </div>
+    </div>
+
+    <div class="tradeoff-block ft">
+      <div class="tradeoff-label ft">⚙️ Fine-Tuning — The Alignment Tax &amp; Catastrophic Forgetting</div>
+      <p class="concept-text">When you Fine-Tune a general AI, it gets better at the specific task — and can quietly get worse at everything else. Train it too hard on one domain and it may start losing general reasoning ability. This is called <strong>catastrophic forgetting</strong> — specialist training overwrites some of the general knowledge.</p>
+      <p class="concept-text">There's a deeper problem: general AI models are trained to be safe, balanced, and careful. Fine-Tuning erodes this. A sales AI trained to be persuasive might become subtly manipulative. A news AI trained to maximise engagement might start favouring drama over accuracy. Researchers call this the <strong>alignment tax</strong> — making AI more useful for a narrow purpose often costs you some of its broader trustworthiness. <strong>Nobody programs this in. It just happens.</strong></p>
+      <div class="tradeoff-grid">
+        <div class="tradeoff-col good"><div class="tradeoff-col-label">Works Well When</div>• Domain is stable and well-defined<br>• High-quality, balanced training data<br>• Budget for evaluation &amp; monitoring</div>
+        <div class="tradeoff-col bad"><div class="tradeoff-col-label">Breaks Down When</div>• Training data is biased or one-sided<br>• Domain changes rapidly after training<br>• Safety properties aren't re-evaluated</div>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <div class="hl-title">The Pattern Underneath All Three</div>
+      Every tool that makes AI more capable introduces a new way it can fail <em>quietly</em>. Prompts break silently when models update. RAG produces confident wrong answers when documents are bad. Fine-Tuning absorbs bias and erodes safety without anyone noticing. <strong>The best AI builders aren't just the ones who can build these systems — they're the ones who anticipate and catch these failures before they cause harm.</strong>
+    </div>
+
+    <div class="biz-case">
+      <div class="biz-label">⚠️ Cautionary Real-World Case</div>
+      <div class="biz-title">When It All Goes Wrong — The Airline Chatbot</div>
+      <p>In 2023, a major airline's customer service chatbot told a grieving customer that bereavement fares could be booked retroactively after the fact. The customer relied on this advice, booked at full price, and asked for a refund.</p>
+      <p>The airline argued the chatbot's answer was not binding. A Canadian court disagreed and ordered the airline to honour it. The AI had given a confident, plausible-sounding answer that directly contradicted actual policy — <strong>and the company was held legally responsible.</strong></p>
+      <div class="biz-outcome">
+        <span class="check">⚠</span>
+        <span><strong>The lesson:</strong> No RAG to ground the answer in real policy, weak prompt guardrails, and no output validation created a legal liability. These aren't just engineering problems. Each failure mode from this module played a role.</span>
+      </div>
+    </div>
+
+    <div class="quiz-section">
+      <div class="quiz-label">✦ Module Checkpoint</div>
+      <div class="quiz-q">A company fine-tunes a general AI on five years of internal sales emails. Six months later, the legal team notices the AI is making commitments and promises in customer conversations that the original model would have refused. Nobody programmed this. What happened — and what is this failure mode called?</div>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false" onclick="mq('q5',this,'q5fb')"><span class="opt-letter">A</span>The AI was hacked — an external actor changed its behaviour.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q5',this,'q5fb')"><span class="opt-letter">B</span>RAG retrieved bad documents, causing the AI to say wrong things.</button>
+        <button class="quiz-option" data-correct="true"  onclick="mq('q5',this,'q5fb')"><span class="opt-letter">C</span>Fine-Tuning on sales emails eroded the model's safety guardrails — this is the alignment tax.</button>
+        <button class="quiz-option" data-correct="false" onclick="mq('q5',this,'q5fb')"><span class="opt-letter">D</span>The prompt wasn't written carefully enough — better prompt engineering would fix it.</button>
+      </div>
+      <div class="quiz-feedback" id="q5fb"></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULE 6 -->
+<section id="sec-m6">
+  <div class="module" data-sec="6">
+    <div class="module-header">
+      <div class="module-num">Module 06</div>
+      <h2 class="module-title">The Decision <em>Framework</em></h2>
+    </div>
+    <p class="concept-text">You now understand all three tools and their failure modes. The last skill is knowing <strong>which one to reach for — and when.</strong> Work through each scenario below.</p>
+
+    <div class="decision-q" id="dq1">
+      <div class="decision-q-text">Scenario A — A startup wants to add AI to their customer support. Their product updates monthly. Budget is tight. What should they start with?</div>
+      <div class="decision-choices" id="dq1-choices">
+        <button class="decision-btn" onclick="showDecision('dq1','A')">Fine-Tune a model on past support conversations</button>
+        <button class="decision-btn" onclick="showDecision('dq1','B')">RAG connected to their live help docs + good prompt</button>
+        <button class="decision-btn" onclick="showDecision('dq1','C')">Prompt Engineering alone on a general AI</button>
+      </div>
+      <div class="decision-result dr-rag" id="dq1-A" style="display:none"><span class="dr-icon">📚</span><strong>RAG + Prompt Engineering is the right answer.</strong> Fine-Tuning is expensive to retrain when products change monthly. RAG means they just update help docs — the AI is instantly current. A well-written prompt controls tone and safety. This is the lean, maintainable architecture for an early-stage team.</div>
+      <div class="decision-result dr-correct" id="dq1-B" style="display:none"><span class="dr-icon">✓ Correct thinking.</span> <strong>RAG + Prompt Engineering</strong> is the lean, maintainable stack for a fast-moving team. They update help docs when products change — no retraining needed. Prompt Engineering wraps everything to control tone and safety. Fine-Tuning comes later, when they have scale and stable data.</div>
+      <div class="decision-result dr-pe" id="dq1-C" style="display:none"><span class="dr-icon">🗣️</span><strong>Prompt Engineering alone will hit a ceiling.</strong> It's a great starting point — and they should definitely invest in it — but without RAG, the AI has no access to their actual product information. It will either make things up or give generic answers. Add RAG as soon as possible.</div>
+      <button class="decision-reset" id="dq1-reset" style="display:none" onclick="resetDecision('dq1')">↺ Try again</button>
+    </div>
+
+    <div class="decision-q" id="dq2">
+      <div class="decision-q-text">Scenario B — A hospital wants an AI that speaks, reasons, and prioritises like their senior doctors — and stays current with monthly clinical guideline updates. What's the right architecture?</div>
+      <div class="decision-choices" id="dq2-choices">
+        <button class="decision-btn" onclick="showDecision('dq2','A')">Fine-Tune only — use 20 years of diagnosis notes</button>
+        <button class="decision-btn" onclick="showDecision('dq2','B')">RAG only — connect to the guidelines database</button>
+        <button class="decision-btn" onclick="showDecision('dq2','C')">Fine-Tune for clinical reasoning + RAG for guidelines + Prompt Engineering for output safety</button>
+      </div>
+      <div class="decision-result dr-wrong" id="dq2-A" style="display:none"><span class="dr-icon">⚙️</span><strong>Fine-Tuning alone leaves a dangerous gap.</strong> It gives the AI clinical reasoning depth from 20 years of notes — but monthly guideline updates will make it stale within weeks. Add RAG for the guidelines database, and Prompt Engineering to ensure outputs are structured and safe.</div>
+      <div class="decision-result dr-wrong" id="dq2-B" style="display:none"><span class="dr-icon">📚</span><strong>RAG alone misses the clinical depth.</strong> RAG keeps the AI current with guidelines — but without Fine-Tuning, it reasons like a generalist, not a doctor. The vocabulary, the prioritisation, the diagnostic logic — those come from training on real clinical data. You need both.</div>
+      <div class="decision-result dr-correct" id="dq2-C" style="display:none"><span class="dr-icon">✓ Perfect architecture.</span> <strong>All three layers for good reason.</strong> Fine-Tuning instils clinical reasoning from 20 years of real cases. RAG keeps monthly guidelines current with zero retraining. Prompt Engineering ensures outputs are formatted for doctors and include appropriate safety caveats. In healthcare, skipping any layer is a patient safety risk.</div>
+      <button class="decision-reset" id="dq2-reset" style="display:none" onclick="resetDecision('dq2')">↺ Try again</button>
+    </div>
+
+    <div class="decision-q" id="dq3">
+      <div class="decision-q-text">Scenario C — Your AI starts giving outdated pricing info six months after launch. Nobody changed the model. Products changed. What do you fix, and how?</div>
+      <div class="decision-choices" id="dq3-choices">
+        <button class="decision-btn" onclick="showDecision('dq3','A')">Retrain the entire Fine-Tuned model with updated pricing data</button>
+        <button class="decision-btn" onclick="showDecision('dq3','B')">Update the pricing document in the RAG library</button>
+        <button class="decision-btn" onclick="showDecision('dq3','C')">Rewrite the prompt to include current pricing manually each time</button>
+      </div>
+      <div class="decision-result dr-wrong" id="dq3-A" style="display:none"><span class="dr-icon">⚙️</span><strong>Retraining works — but it's the hardest fix.</strong> It takes weeks, costs real money, and you'll face this same problem every time pricing changes. The root issue is that Fine-Tuning was used for something that changes frequently. Switch to RAG for pricing data going forward.</div>
+      <div class="decision-result dr-correct" id="dq3-B" style="display:none"><span class="dr-icon">✓ This is exactly right.</span> <strong>Update one document. Done.</strong> If pricing lives in a RAG-connected document, updating it takes minutes and the AI is instantly current. This is why fast-changing information should always live in RAG, not baked into a Fine-Tuned model.</div>
+      <div class="decision-result dr-wrong" id="dq3-C" style="display:none"><span class="dr-icon">🗣️</span><strong>Prompt injection of pricing is a workaround, not a fix.</strong> It's fragile, manual, and won't scale. The right solution is to put pricing information in a RAG-connected document. Update the document once — the AI is current everywhere, instantly.</div>
+      <button class="decision-reset" id="dq3-reset" style="display:none" onclick="resetDecision('dq3')">↺ Try again</button>
+    </div>
+
+    <div class="highlight">
+      <div class="hl-title">The Three Questions That Determine Your Architecture</div>
+      Before picking a tool, ask these three questions in order:<br><br>
+      <strong>1. Does the information change frequently?</strong> If yes → RAG. Never bake fast-moving data into Fine-Tuning.<br><br>
+      <strong>2. Does the AI need to sound, reason, or behave like a specialist?</strong> If yes → Fine-Tuning. Prompts can't teach expertise.<br><br>
+      <strong>3. Do you control the output format, tone, and safety?</strong> Always → Prompt Engineering. It's the layer that never goes away.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary">
+  <div class="gloss-inner">
+    <div class="gloss-title">Glossary</div>
+    <p class="gloss-sub">Every concept introduced in this course — with plain-English definitions. Filter by topic.</p>
+    <div class="gloss-filter">
+      <button class="gloss-tag-btn active" onclick="filterGloss('all',this)">All Terms</button>
+      <button class="gloss-tag-btn" onclick="filterGloss('pe',this)">Prompt Eng.</button>
+      <button class="gloss-tag-btn" onclick="filterGloss('rag',this)">RAG</button>
+      <button class="gloss-tag-btn" onclick="filterGloss('ft',this)">Fine-Tuning</button>
+      <button class="gloss-tag-btn" onclick="filterGloss('risk',this)">Failure Modes</button>
+    </div>
+    <div class="gloss-grid" id="gloss-grid">
+
+      <div class="gloss-item" data-cat="pe">
+        <div class="gloss-item-top"><span class="gloss-term">Prompt Engineering</span><span class="gloss-badge tag tag-pe">PE</span></div>
+        <div class="gloss-def">The practice of designing and refining the text you give an AI to produce better, more targeted outputs. No coding required — it's about learning to ask precisely.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="pe">
+        <div class="gloss-item-top"><span class="gloss-term">Few-Shot Prompting</span><span class="gloss-badge tag tag-pe">PE</span></div>
+        <div class="gloss-def">Giving the AI 2–5 examples of the output you want before asking your question. The AI pattern-matches your examples and produces results in the same style and format.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="pe">
+        <div class="gloss-item-top"><span class="gloss-term">Chain-of-Thought</span><span class="gloss-badge tag tag-pe">PE</span></div>
+        <div class="gloss-def">A prompting technique where you ask the AI to "think step by step" before giving an answer. Forces the model to reason through a problem rather than jumping to conclusions — dramatically improves accuracy on complex tasks.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="pe risk">
+        <div class="gloss-item-top"><span class="gloss-term">Prompt Brittleness</span><span class="gloss-badge tag tag-pe">PE</span></div>
+        <div class="gloss-def">The tendency of prompts to behave differently when the underlying AI model is updated — even if the prompt itself hasn't changed. A major scaling problem: 400 prompts can break overnight from a single silent model update.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="pe">
+        <div class="gloss-item-top"><span class="gloss-term">Temperature</span><span class="gloss-badge tag tag-pe">PE</span></div>
+        <div class="gloss-def">A setting that controls how creative vs. predictable the AI's output is. High temperature = more varied, more surprising, occasionally wrong. Low temperature = more consistent, safer, sometimes boring. Set by whoever deploys the AI.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="rag">
+        <div class="gloss-item-top"><span class="gloss-term">RAG</span><span class="gloss-badge tag tag-rag">RAG</span></div>
+        <div class="gloss-def">Retrieval-Augmented Generation. A technique where the AI searches a connected document library before answering a question, using fresh retrieved information to build its response rather than relying solely on training memory.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="rag">
+        <div class="gloss-item-top"><span class="gloss-term">Vector Embeddings</span><span class="gloss-badge tag tag-rag">RAG</span></div>
+        <div class="gloss-def">The way RAG finds relevant documents — by converting both documents and your question into lists of numbers that represent their meaning. Documents close in this "meaning space" get retrieved. This is why RAG finds conceptually related content, not just keyword matches.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="rag">
+        <div class="gloss-item-top"><span class="gloss-term">Context Window</span><span class="gloss-badge tag tag-rag">RAG</span></div>
+        <div class="gloss-def">The maximum amount of text an AI can hold in its "working memory" at one time. RAG systems must choose which retrieved chunks fit within this limit — if the answer requires many documents at once, some may get cut off.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="rag risk">
+        <div class="gloss-item-top"><span class="gloss-term">Hallucination</span><span class="gloss-badge tag tag-rag">RAG</span></div>
+        <div class="gloss-def">When an AI produces a confident, detailed, plausible-sounding answer that is simply wrong — because the correct information was never in its training data or RAG library. The danger: it sounds just as authoritative as a correct answer.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="rag">
+        <div class="gloss-item-top"><span class="gloss-term">Document Governance</span><span class="gloss-badge tag tag-rag">RAG</span></div>
+        <div class="gloss-def">The practice of assigning ownership, expiry dates, and update responsibilities to every document in a RAG library. Without it, stale documents pile up and the AI gives confidently outdated answers — the garbage document problem.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="ft">
+        <div class="gloss-item-top"><span class="gloss-term">Fine-Tuning</span><span class="gloss-badge tag tag-ft">FT</span></div>
+        <div class="gloss-def">The process of taking a pre-trained general AI model and training it further on a specialised dataset — so it learns a specific domain's vocabulary, reasoning style, and priorities. Changes how the AI thinks, not just what it knows.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="ft risk">
+        <div class="gloss-item-top"><span class="gloss-term">Alignment Tax</span><span class="gloss-badge tag tag-ft">FT</span></div>
+        <div class="gloss-def">The phenomenon where Fine-Tuning a model for a narrow task erodes its original safety and fairness guardrails. A sales AI becomes more persuasive — and also more willing to bend the truth. Nobody programs this; it's an emergent consequence of the training process.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="ft risk">
+        <div class="gloss-item-top"><span class="gloss-term">Catastrophic Forgetting</span><span class="gloss-badge tag tag-ft">FT</span></div>
+        <div class="gloss-def">When intensive Fine-Tuning on a specialist domain overwrites some of the model's general capabilities. The AI becomes a better skater — and forgets how to swim. Heavy Fine-Tuning requires careful evaluation to catch capability regressions.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="ft risk">
+        <div class="gloss-item-top"><span class="gloss-term">Training Data Bias</span><span class="gloss-badge tag tag-ft">FT</span></div>
+        <div class="gloss-def">When the dataset used to Fine-Tune an AI reflects historical human biases — skewed hiring decisions, unequal representation, past unfair practices. The AI learns these patterns faithfully and reproduces them at scale, silently and confidently.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="ft">
+        <div class="gloss-item-top"><span class="gloss-term">Base Model</span><span class="gloss-badge tag tag-ft">FT</span></div>
+        <div class="gloss-def">The large, general-purpose AI that Fine-Tuning starts from. Think of it as the athlete before specialty school — capable at everything, expert at nothing. GPT-4, Claude, and Llama are examples of base models that get Fine-Tuned into specialists.</div>
+      </div>
+
+      <div class="gloss-item" data-cat="risk">
+        <div class="gloss-item-top"><span class="gloss-term">Drift</span><span class="gloss-badge" style="background:rgba(168,85,247,.15);color:#a855f7;">Risk</span></div>
+        <div class="gloss-def">The gradual degradation of AI output quality over time — as the world changes but the model or its documents don't. Pricing drift, guideline drift, tone drift. The output seems fine until someone notices it's been wrong for weeks.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FINAL QUIZ -->
+<section id="final-quiz">
+  <div class="final-inner">
+    <div class="final-title">Final Assessment</div>
+    <p class="final-sub">5 questions. Answer all of them, then submit.</p>
+
+    <div id="fq-questions">
+      <div class="fq-item">
+        <div class="fq-num">Question 01 / 05</div>
+        <div class="quiz-q">Your company's product catalogue changes every 3 months. Which technique keeps the AI current with the least cost and effort?</div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-correct="false" onclick="fq('fq1',this,'fb1')"><span class="opt-letter">A</span>Fine-Tuning — retrain the AI every 3 months with new product data</button>
+          <button class="quiz-option" data-correct="true"  onclick="fq('fq1',this,'fb1')"><span class="opt-letter">B</span>RAG — update the product document library; the AI reads it automatically</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq1',this,'fb1')"><span class="opt-letter">C</span>Prompt Engineering — paste the latest catalogue into every prompt manually</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq1',this,'fb1')"><span class="opt-letter">D</span>None of these — AI cannot handle fast-changing product info</button>
+        </div>
+        <div class="quiz-feedback" id="fb1"></div>
+      </div>
+
+      <div class="fq-item">
+        <div class="fq-num">Question 02 / 05</div>
+        <div class="quiz-q">A medical AI gives a confident, detailed answer about a drug interaction — but the interaction was never in its training data, and there is no RAG system. What most likely happened?</div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-correct="false" onclick="fq('fq2',this,'fb2')"><span class="opt-letter">A</span>The AI found it via a live web search — it's probably reliable</button>
+          <button class="quiz-option" data-correct="true"  onclick="fq('fq2',this,'fb2')"><span class="opt-letter">B</span>The AI hallucinated — it fabricated a confident-sounding answer it didn't actually know</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq2',this,'fb2')"><span class="opt-letter">C</span>Confidence means correctness — detailed answers are always reliable</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq2',this,'fb2')"><span class="opt-letter">D</span>The Fine-Tuning worked correctly — detailed answers come from good training</button>
+        </div>
+        <div class="quiz-feedback" id="fb2"></div>
+      </div>
+
+      <div class="fq-item">
+        <div class="fq-num">Question 03 / 05</div>
+        <div class="quiz-q">A company has 400 AI-powered product features, each controlled by a carefully written prompt. Their AI provider ships a silent model update. The next day, 60 features behave unexpectedly — nobody changed any code or prompts. What is this failure called, and what should the team have had in place?</div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-correct="false" onclick="fq('fq3',this,'fb3')"><span class="opt-letter">A</span>Hallucination — the AI made things up because the prompts were too vague.</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq3',this,'fb3')"><span class="opt-letter">B</span>Catastrophic forgetting — Fine-Tuning overwrote the original model's knowledge.</button>
+          <button class="quiz-option" data-correct="true"  onclick="fq('fq3',this,'fb3')"><span class="opt-letter">C</span>Prompt brittleness — prompts interact differently with new model versions; they needed automated regression testing across all prompts on every model update.</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq3',this,'fb3')"><span class="opt-letter">D</span>A RAG failure — the document library was outdated and caused wrong retrievals.</button>
+        </div>
+        <div class="quiz-feedback" id="fb3"></div>
+      </div>
+
+      <div class="fq-item">
+        <div class="fq-num">Question 04 / 05</div>
+        <div class="quiz-q">A startup building a cooking AI has: a general model, 50,000 curated recipes, and a database of every food blog ever published. How should they use each resource?</div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-correct="true"  onclick="fq('fq4',this,'fb4')"><span class="opt-letter">A</span>Fine-Tune on the recipes for culinary expertise; RAG on the food blogs for fresh content; Prompt Engineering to control tone and format</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq4',this,'fb4')"><span class="opt-letter">B</span>Fine-Tune on everything — combine all data into one training run</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq4',this,'fb4')"><span class="opt-letter">C</span>Only use Prompt Engineering — no modifications to the AI are needed</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq4',this,'fb4')"><span class="opt-letter">D</span>RAG the recipes and ignore the general model entirely</button>
+        </div>
+        <div class="quiz-feedback" id="fb4"></div>
+      </div>
+
+      <div class="fq-item">
+        <div class="fq-num">Question 05 / 05</div>
+        <div class="quiz-q">A bank Fine-Tunes a general AI on five years of their loan officers' approval notes. Over time, the AI starts approving loans significantly faster — but auditors discover it quietly deprioritises applicants from certain postcodes. The original general model didn't do this. What are the TWO most likely causes working together?</div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-correct="false" onclick="fq('fq5',this,'fb5')"><span class="opt-letter">A</span>The RAG document library had outdated demographic data, and the prompts were too permissive.</button>
+          <button class="quiz-option" data-correct="true"  onclick="fq('fq5',this,'fb5')"><span class="opt-letter">B</span>The training data reflected historical bias in loan officer decisions, and Fine-Tuning eroded the base model's fairness guardrails — the alignment tax.</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq5',this,'fb5')"><span class="opt-letter">C</span>The model hallucinated demographic patterns that don't exist in the data.</button>
+          <button class="quiz-option" data-correct="false" onclick="fq('fq5',this,'fb5')"><span class="opt-letter">D</span>Catastrophic forgetting caused the AI to lose its financial knowledge and guess randomly.</button>
+        </div>
+        <div class="quiz-feedback" id="fb5"></div>
+      </div>
+
+      <div class="submit-wrap">
+        <div class="submit-progress">Answered <span id="ans-count">0</span> of 5 — answer all to unlock Submit</div>
+        <button class="btn-submit" id="submit-btn" onclick="submitFinal()">Submit &amp; See Results →</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="score-display" id="score-display">
+      <div class="score-card">
+        <div class="score-ring">
+          <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+            <circle class="ring-bg" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="0"/>
+            <circle class="ring-fg" id="ring-fg" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"/>
+          </svg>
+          <div class="score-num" id="score-num">0</div>
+          <div class="score-denom">out of 5</div>
+        </div>
+        <div class="score-title" id="score-title"></div>
+        <div class="score-msg" id="score-msg"></div>
+        <div class="score-badges">
+          <div class="badge badge-pe">Prompt Engineering</div>
+          <div class="badge badge-rag">RAG</div>
+          <div class="badge badge-ft">Fine-Tuning</div>
+        </div>
+      </div>
+    </div><!-- /score-display -->
+  </div>
+</section>
+
+<section id="whats-next">
+  <div class="wn-inner">
+    <div class="wn-title">What To Do Next</div>
+    <p class="wn-sub">You've finished the course. Here's how to take this further.</p>
+    <div class="wn-grid">
+      <div class="wn-card">
+        <div class="wn-card-icon">🛠️</div>
+        <h4>Practice Prompting Today</h4>
+        <p>Open any AI chat tool — Claude, ChatGPT, Gemini — and write a prompt with a role, three examples, and step-by-step instructions. Compare it to a vague one. The difference will be immediate.</p>
+      </div>
+      <div class="wn-card">
+        <div class="wn-card-icon">📖</div>
+        <h4>Read the Official Guides</h4>
+        <p>Anthropic, OpenAI, and Google all publish free prompt engineering documentation. Search "Anthropic prompt engineering guide" — the official docs are thorough and free.</p>
+      </div>
+      <div class="wn-card">
+        <div class="wn-card-icon">🧪</div>
+        <h4>Build a Tiny RAG System</h4>
+        <p>The Anthropic and OpenAI APIs let you call AI from code with a free tier. A script that reads a text file and answers questions about it is a working RAG prototype. Simpler than it sounds.</p>
+      </div>
+      <div class="wn-card">
+        <div class="wn-card-icon">🔬</div>
+        <h4>Follow the Safety Research</h4>
+        <p>Anthropic, DeepMind, and OpenAI all publish safety research publicly. The alignment tax and bias topics from Module 5 are live, unsolved research problems — the field needs people who understand them.</p>
+      </div>
+      <div class="wn-card">
+        <div class="wn-card-icon">🎓</div>
+        <h4>Go Deeper on RAG</h4>
+        <p>Search "RAG architecture tutorial" or "LangChain RAG" for hands-on implementation guides. The underlying concepts — vector databases, embeddings, chunking — are accessible with basic coding knowledge.</p>
+      </div>
+      <div class="wn-card">
+        <div class="wn-card-icon">🤝</div>
+        <h4>Bring This to Your Team</h4>
+        <p>Share this course with colleagues. The biggest leverage on AI outcomes isn't the tool — it's whether the people using it understand what it can and can't do. That's now you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>AI Fundamentals · Prompt Engineering · RAG · Fine-Tuning · Built for curious minds</footer>
+
+<script>
+// ── NAV DOTS ──
+const SECS = [
+  { id: 'sec-hero',    label: 'Introduction' },
+  { id: 'sec-m1',     label: 'Prompt Engineering' },
+  { id: 'sec-m2',     label: 'RAG' },
+  { id: 'sec-m3',     label: 'Fine-Tuning' },
+  { id: 'sec-m4',     label: 'Working Together' },
+  { id: 'sec-m5',     label: 'Trade-offs' },
+  { id: 'sec-m6',     label: 'Decision Framework' },
+  { id: 'glossary',   label: 'Glossary' },
+  { id: 'final-quiz', label: 'Final Quiz' }
+];
+const dotsEl = document.getElementById('nav-dots');
+SECS.forEach((s, i) => {
+  const d = document.createElement('div');
+  d.className = 'nav-dot';
+  d.innerHTML = `<span class="tip">${s.label}</span>`;
+  d.onclick = () => document.getElementById(s.id).scrollIntoView({ behavior: 'smooth' });
+  dotsEl.appendChild(d);
+});
+const getDots = () => dotsEl.querySelectorAll('.nav-dot');
+
+// ── SCROLL ──
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.module').forEach(m => revObs.observe(m));
+
+window.addEventListener('scroll', () => {
+  const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+  document.getElementById('progress-bar').style.width = Math.min(100, pct) + '%';
+  const mid = window.innerHeight / 2;
+  SECS.forEach((s, i) => {
+    const el = document.getElementById(s.id); if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top <= mid && r.bottom >= mid) {
+      getDots().forEach(d => d.classList.remove('active'));
+      getDots()[i].classList.add('active');
+    }
+  });
+}, { passive: true });
+
+// ── MODULE QUIZ FEEDBACK ──
+const MF = {
+  q1: {
+    ok:   '✓ Exactly right. The prompt was too vague — no audience, no goal, no tone, no format. Senior prompt engineers always specify all of these up front. Same AI, completely different result.',
+    nope: '✗ The AI is not broken, and a pricier model will not help. The prompt gave the AI nothing to work with. The fix is entirely in how you ask.'
+  },
+  q2: {
+    ok:   '✓ Perfect. Client documents are unique, private, and change with every case. RAG lets the AI look them up fresh for each query without memorising or fine-tuning on confidential files.',
+    nope: '✗ Fine-Tuning teaches style — it cannot give the AI access to specific, ever-changing case files. Prompt Engineering alone cannot supply information the AI was never given. RAG is the right tool here.'
+  },
+  q3: {
+    ok:   '✓ Exactly right — training data bias. The best salesperson genuinely preferred that vendor, so it appeared over and over in the emails. The AI absorbed the pattern faithfully. Nobody programmed a preference; the data embedded it.',
+    nope: '✗ Nobody hacked the AI. This is training data bias — the salesperson\'s consistent vendor preference was encoded in five years of emails, and the model learned it as a pattern worth replicating.'
+  },
+  q4: {
+    ok:   '✓ Perfect. Fine-Tuning gives the AI clinical reasoning from 20 years of real diagnoses. RAG keeps it current with monthly guideline updates. Prompt Engineering ensures outputs are safe, structured, and formatted for doctors. All three layers are necessary.',
+    nope: '✗ Any single tool creates a dangerous gap. Fine-Tuning alone means stale guidelines. RAG alone means no clinical depth. Prompts alone cannot provide expertise or current data. In healthcare especially, all three layers are the responsible architecture.'
+  },
+  q5: {
+    ok:   '✓ Exactly right — this is the alignment tax. The sales emails were full of persuasive, commitment-heavy language. The model learned that pattern faithfully. The safety guardrails from the original model were gradually overwritten during Fine-Tuning. This is one of the most dangerous and least visible failure modes in production AI.',
+    nope: '✗ Nobody hacked it, and RAG has nothing to do with it. The Fine-Tuning process absorbed the language patterns of five years of aggressive sales emails — including the willingness to make promises. The original model\'s safety training was eroded in the process. This is called the alignment tax.'
+  }
+};
+const mqDone = {};
+function mq(id, btn, fbId) {
+  if (mqDone[id]) return;
+  mqDone[id] = true;
+  const opts = btn.closest('.quiz-options').querySelectorAll('.quiz-option');
+  opts.forEach(o => { o.disabled = true; if (o.dataset.correct === 'true') o.classList.add('correct'); });
+  const correct = btn.dataset.correct === 'true';
+  if (!correct) btn.classList.add('wrong');
+  const fb = document.getElementById(fbId);
+  fb.innerHTML = correct ? MF[id].ok : MF[id].nope;
+  fb.className = 'quiz-feedback show ' + (correct ? 'ok' : 'nope');
+  const map = { q1:1, q2:2, q3:3, q4:4, q5:5 };
+  getDots()[map[id]].classList.add('done');
+}
+
+// ── FINAL QUIZ ──
+const FA = {};
+let ansCount = 0;
+const FF = {
+  fq1: {
+    ok:   '✓ Correct. RAG = update a document. Done. Fine-Tuning requires weeks of retraining and real cost. For anything that changes regularly, RAG is the pragmatic and scalable choice.',
+    nope: '✗ RAG is the answer. When information changes often, update a document — don\'t retrain the entire model.'
+  },
+  fq2: {
+    ok:   '✓ Correct. This is hallucination — the AI had no information about this interaction but produced a confident answer anyway. In medicine, a convincingly wrong answer is more dangerous than an obvious failure. RAG with verified databases is critical in healthcare AI.',
+    nope: '✗ This is hallucination. The AI didn\'t look anything up — it fabricated a plausible-sounding answer because it lacked a mechanism to say "I don\'t know." Confident does not mean correct.'
+  },
+  fq3: {
+    ok:   "✓ Correct — prompt brittleness. Prompts aren't code; they interact differently with each model version and have no unit tests. At 400 features, a silent model update becomes a regression incident. The fix: automated prompt evaluation pipelines that test every feature after each model version change.",
+    nope: "✗ This is prompt brittleness — prompts behave differently after a silent model update, even though the team changed nothing. At scale, this is one of the most expensive failure modes in production AI. The solution: automated prompt regression testing on every model version change."
+  },
+  fq4: {
+    ok:   '✓ Perfect architecture. Fine-Tuning on recipes builds culinary expertise and vocabulary. RAG on the food blog database keeps content fresh and specific. Prompt Engineering controls tone, safety, and user-facing format.',
+    nope: '✗ Each tool has its distinct job. Fine-Tuning teaches expertise. RAG provides currency. Prompt Engineering controls the output experience. Using all three together produces the strongest result.'
+  },
+  fq5: {
+    ok:   "✓ Correct — two failure modes working together. The loan officers' historical decisions encoded a postcode bias. Fine-Tuning faithfully absorbed that pattern. And the base model's fairness guardrails were eroded during training — the alignment tax. The result: a faster, biased AI that nobody deliberately built.",
+    nope: "✗ This is training data bias plus the alignment tax. The officers' past decisions encoded postcode bias. Fine-Tuning absorbed it. And the base model's fairness guardrails were silently eroded in the process. This is why diverse training data and post-training safety evaluation are non-negotiable in high-stakes domains."
+  }
+};
+
+function fq(id, btn, fbId) {
+  if (FA[id] !== undefined) return;
+  const correct = btn.dataset.correct === 'true';
+  FA[id] = correct;
+  ansCount++;
+  const opts = btn.closest('.quiz-options').querySelectorAll('.quiz-option');
+  opts.forEach(o => { o.disabled = true; if (o.dataset.correct === 'true') o.classList.add('correct'); });
+  if (!correct) btn.classList.add('wrong');
+  const fb = document.getElementById(fbId);
+  fb.innerHTML = (correct ? '✓ ' : '✗ ') + (correct ? FF[id].ok : FF[id].nope);
+  fb.className = 'quiz-feedback show ' + (correct ? 'ok' : 'nope');
+  document.getElementById('ans-count').textContent = ansCount;
+  if (ansCount === 5) document.getElementById('submit-btn').classList.add('ready');
+}
+
+function submitFinal() {
+  if (ansCount < 5) return;
+  const score = Object.values(FA).filter(Boolean).length;
+  document.getElementById('fq-questions').style.display = 'none';
+  const disp = document.getElementById('score-display');
+  disp.classList.add('show');
+
+  // Ring animation
+  const circ = 427;
+  setTimeout(() => {
+    document.getElementById('ring-fg').style.strokeDashoffset = circ - (score / 5) * circ;
+  }, 120);
+
+  document.getElementById('score-num').textContent = score;
+
+  const data = [
+    { title: 'Keep Going',         msg: "Don't worry — these concepts take a little time to settle in. Scroll back up, re-read the sections that tripped you up, and give it another go. It will click." },
+    { title: 'Getting There',      msg: "You've got the core ideas. A quick review of the sections where you got stuck will get you the rest of the way." },
+    { title: 'Good Foundation',    msg: "Solid understanding of all three techniques. You have a real working mental model — that's the meaningful threshold." },
+    { title: 'Strong Work',        msg: "You understand the concepts well and can reason about tradeoffs. That's the level that matters in real conversations about AI." },
+    { title: 'Near Perfect',       msg: "Very strong — you're reasoning about systems and failure modes, not just definitions. One more pass and you'll get the full picture." },
+    { title: 'Outstanding 🏆',     msg: "Perfect score. You're thinking like an AI practitioner — reasoning about systems, failure modes, and real-world consequences. " }
+  ];
+  document.getElementById('score-title').textContent = data[score].title;
+  document.getElementById('score-msg').textContent = data[score].msg;);
+  }
+
+  getDots()[8].classList.add('done');
+  disp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function restart() {
+  Object.keys(FA).forEach(k => delete FA[k]);
+  ansCount = 0;
+  document.getElementById('ans-count').textContent = '0';
+  ['fq1','fq2','fq3','fq4','fq5'].forEach((id, i) => {
+    const n = i + 1;
+    document.getElementById('fb' + n).className = 'quiz-feedback';
+    document.getElementById('fb' + n).textContent = '';
+    const opts = document.getElementById('fb' + n).closest('.fq-item').querySelectorAll('.quiz-option');
+    opts.forEach(o => { o.disabled = false; o.classList.remove('correct','wrong'); });
+  });
+  document.getElementById('submit-btn').classList.remove('ready');
+  document.getElementById('fq-questions').style.display = 'block';
+  document.getElementById('score-display').classList.remove('show');
+  document.getElementById('ring-fg').style.strokeDashoffset = '427';
+  document.getElementById('final-quiz').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── DECISION FRAMEWORK ──
+function showDecision(qId, choice) {
+  const choices = document.getElementById(qId + '-choices');
+  choices.querySelectorAll('.decision-btn').forEach(b => b.disabled = true);
+  const result = document.getElementById(qId + '-' + choice);
+  if (result) result.style.display = 'block';
+  const reset = document.getElementById(qId + '-reset');
+  if (reset) reset.style.display = 'inline-block';
+  const dot = { dq1:6, dq2:6, dq3:6 };
+  getDots()[dot[qId]]?.classList.add('done');
+}
+
+function resetDecision(qId) {
+  const choices = document.getElementById(qId + '-choices');
+  choices.querySelectorAll('.decision-btn').forEach(b => b.disabled = false);
+  ['A','B','C'].forEach(c => {
+    const r = document.getElementById(qId + '-' + c);
+    if (r) r.style.display = 'none';
+  });
+  document.getElementById(qId + '-reset').style.display = 'none';
+}
+
+// ── GLOSSARY FILTER ──
+function filterGloss(cat, btn) {
+  document.querySelectorAll('.gloss-tag-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.gloss-item').forEach(item => {
+    const cats = item.dataset.cat || '';
+    item.dataset.hidden = (cat === 'all' || cats.includes(cat)) ? 'false' : 'true';
+  });
+}
+
+</script>
+</body>
+</html>
