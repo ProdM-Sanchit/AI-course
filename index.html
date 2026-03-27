@@ -32,20 +32,21 @@
   #hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 40px 80px; position: relative; overflow: hidden; text-align: center; }
   .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(245,166,35,0.07) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 80% 70%, rgba(45,212,191,0.05) 0%, transparent 60%); pointer-events: none; }
   .hero-tag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); border: 1px solid var(--amber-dim); padding: 6px 18px; border-radius: 20px; margin-bottom: 36px; display: inline-block; animation: fadeUp 0.8s ease forwards; }
-  .hero-title { font-family: var(--font-display); font-size: clamp(36px, 7vw, 82px); font-weight: 900; line-height: 1.05; margin-bottom: 24px; animation: fadeUp 0.8s 0.15s ease both; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(36px, 7vw, 82px); font-weight: 900; line-height: 1.05; margin-bottom: 24px; animation: fadeUp 0.8s 0.15s ease forwards; }
   .hero-title .accent { font-style: italic; color: var(--amber); display: block; }
-  .hero-sub { max-width: 540px; color: var(--text-muted); font-size: 17px; margin-bottom: 52px; animation: fadeUp 0.8s 0.3s ease both; line-height: 1.65; }
-  .hero-pills { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 52px; animation: fadeUp 0.8s 0.45s ease both; }
+  .hero-sub { max-width: 540px; color: var(--text-muted); font-size: 17px; margin-bottom: 52px; animation: fadeUp 0.8s 0.3s ease forwards; line-height: 1.65; }
+  .hero-pills { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 52px; animation: fadeUp 0.8s 0.45s ease forwards; }
   .pill { background: var(--surface); border: 1px solid var(--border); border-radius: 40px; padding: 10px 22px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s; cursor: default; }
   .pill:hover { border-color: var(--amber); transform: translateY(-3px); }
   .pill .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .dot-a { background: var(--amber); } .dot-t { background: var(--teal); } .dot-r { background: var(--rose); } .dot-v { background: var(--violet); }
-  .btn-start { background: var(--amber); color: #0c0c0e; font-family: var(--font-body); font-weight: 500; font-size: 15px; padding: 15px 44px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.25s; animation: fadeUp 0.8s 0.6s ease both; letter-spacing: 0.03em; }
+  .btn-start { background: var(--amber); color: #0c0c0e; font-family: var(--font-body); font-weight: 500; font-size: 15px; padding: 15px 44px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.25s; animation: fadeUp 0.8s 0.6s ease forwards; letter-spacing: 0.03em; }
   .btn-start:hover { background: #f7bc54; transform: translateY(-3px); box-shadow: 0 10px 32px rgba(245,166,35,0.3); }
   .scroll-hint { position: absolute; bottom: 36px; font-size: 11px; color: var(--text-dim); letter-spacing: 0.12em; font-family: var(--font-mono); animation: bounceY 2.5s infinite; }
 
-  .module { max-width: 860px; margin: 0 auto; padding: 100px 40px; opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease; }
-  .module.visible { opacity: 1; transform: none; }
+  .module { max-width: 860px; margin: 0 auto; padding: 100px 40px; opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
+  .module.will-animate { opacity: 0; transform: translateY(40px); }
+  .module.will-animate.visible { opacity: 1; transform: none; }
   .module-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 48px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
   .module-num { font-family: var(--font-mono); font-size: 11px; color: var(--amber); letter-spacing: 0.15em; background: var(--amber-glow); border: 1px solid var(--amber-dim); padding: 5px 12px; border-radius: 4px; flex-shrink: 0; margin-top: 6px; }
   .module-title { font-family: var(--font-display); font-size: clamp(26px, 4.5vw, 40px); font-weight: 700; line-height: 1.2; }
@@ -208,6 +209,11 @@
   }
 
 
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-tag, .hero-title, .hero-sub, .hero-pills, .btn-start { animation: none !important; opacity: 1 !important; transform: none !important; }
+    .module { opacity: 1 !important; transform: none !important; }
+  }
 
   @media (max-width: 600px) {
     nav { padding: 14px 20px; }
@@ -818,10 +824,20 @@ SECS.forEach((s, i) => {
 const getDots = () => dotsEl.querySelectorAll('.nav-dot');
 
 // ── SCROLL ──
+// Only animate if JS is running well and user hasn't set reduced motion
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!prefersReduced) {
+  document.querySelectorAll('.module').forEach(m => m.classList.add('will-animate'));
+}
 const revObs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-}, { threshold: 0.1 });
+}, { threshold: 0.05 });
 document.querySelectorAll('.module').forEach(m => revObs.observe(m));
+
+// Safety net: if anything still invisible after 2s, force show everything
+setTimeout(() => {
+  document.querySelectorAll('.module.will-animate:not(.visible)').forEach(m => m.classList.add('visible'));
+}, 2000);
 
 window.addEventListener('scroll', () => {
   const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
