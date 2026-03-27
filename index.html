@@ -956,8 +956,7 @@ function submitFinal() {
     { title: 'Outstanding 🏆',     msg: "Perfect score. You're thinking like an AI practitioner — reasoning about systems, failure modes, and real-world consequences. " }
   ];
   document.getElementById('score-title').textContent = data[score].title;
-  document.getElementById('score-msg').textContent = data[score].msg;);
-  }
+  document.getElementById('score-msg').textContent = data[score].msg;
 
   getDots()[8].classList.add('done');
   disp.scrollIntoView({ behavior: 'smooth', block: 'start' });
